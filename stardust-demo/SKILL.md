@@ -73,14 +73,15 @@ every 30s to keep Preview and Publish sub-steps current without manual updates.
 
 **Template:** `/workspace/skills/stardust-demo/templates/pipeline.shtml`
 
-### Step 2 — Serve prototype screenshots
+### Step 2 — Take prototype screenshots
 
-For each prototype, take a Playwright screenshot and serve via `open`:
+For each prototype, take a Playwright screenshot and store it for use in the variants sprinkle:
 ```bash
 playwright-cli screenshot --tab <id> /shared/<slug>-variant-A.png
-open /shared/<slug>-variant-A.png  # → https://www.sliccy.ai/preview/shared/...
+playwright-cli screenshot --tab <id> /shared/<slug>-variant-B.png
+playwright-cli screenshot --tab <id> /shared/<slug>-variant-C.png
 ```
-Repeat for B and C.
+These screenshots are referenced by the variants sprinkle template via the `{{SCREENSHOT_A}}`, `{{SCREENSHOT_B}}`, `{{SCREENSHOT_C}}` tokens.
 
 ### Step 3 — Generate the three sprinkles
 
@@ -123,12 +124,12 @@ Read the template, replace the tokens with content from the uplift artifacts, wr
 
 ## Slug derivation
 
-Derive a short slug from the URL hostname:
-- `https://wknd.site` → `wknd`
-- `https://www.knack.com` → `knack`
-- `https://adobe.com` → `adobe`
+Derive a short slug from the URL hostname + a random 4-character hex ID:
+- `https://wknd.site` → `wknd-a3f1`
+- `https://www.knack.com` → `knack-9c2e`
+- `https://adobe.com` → `adobe-7b04`
 
-Strip `www.`, take the first hostname segment before `.`, lowercase.
+Strip `www.`, take the first hostname segment before `.`, lowercase, then append `-` and 4 random hex characters (e.g. `$(openssl rand -hex 2)`).
 
 ## Re-run behavior
 
