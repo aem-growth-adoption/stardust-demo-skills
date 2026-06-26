@@ -28,13 +28,41 @@ three sprinkles in the stardust design system style:
 2. Verify `impeccable` skill files are at `/workspace/skills/impeccable/`. If not, fetch from `pbakaus/impeccable`.
 3. Check `/workspace/stardust/state.json` — if a previous uplift ran for the same URL, ask the user whether to re-run or use existing artifacts.
 
+## Architecture: hybrid scoop + workflow
+
+The demo uses two execution models:
+
+| Component | Model | Why |
+|---|---|---|
+| **Uplift** | Scoop (cone-orchestrated) | Needs full context, may ask user questions mid-run |
+| **Sprinkle generation** | Workflow (parallel fan-out) | Pure template population, no interaction, parallelizable |
+
+The cone orchestrates:
+1. Launches the uplift scoop (interactive — can relay questions to user)
+2. When uplift completes, launches the workflow to generate all 4 sprinkles in parallel
+3. Handles deploy when the user picks a variant
+
 ## Procedure
 
-### Step 1 — Run the uplift
+### Step 1 — Run the uplift (scoop, interactive)
 
-Delegate to the `stardust:uplift` pipeline (via a scoop) for the given URL. Wait for it to complete.
+Delegate the full `stardust:uplift` pipeline to a scoop:
+```
+scoop_scoop("<slug>-uplift")
+feed_scoop("<slug>-uplift", "<full uplift prompt for URL>")
+```
 
-Outputs expected at:
+The scoop runs all 6 uplift phases in sequence with full context. If the uplift agent
+encounters a stop condition (brand surface too thin, improvements list empty, etc.) it
+**surfaces the question to the cone** which relays it to the user. The cone feeds the
+user's answer back:
+```
+feed_scoop("<slug>-uplift", "User answered: <answer>. Continue.")
+```
+
+This preserves the monolithic reasoning chain while allowing mid-run interaction.
+
+Outputs when complete:
 - `/workspace/stardust/uplift-improvements.md` — 5 tensions
 - `/workspace/stardust/current/brand-review.html` — brand review
 - `/workspace/stardust/current/_brand-extraction.json` — palette + type
@@ -43,74 +71,31 @@ Outputs expected at:
 - `/workspace/stardust/prototypes/home-C-cinematic.html`
 - `/workspace/stardust/direction.md` — variant directions + recommendation
 
-### Step 1b — Open the pipeline sprinkle immediately
+### Step 2 — Generate sprinkles (workflow, parallel)
 
-As soon as the uplift scoop starts, create a `<slug>-pipeline` scoop and open the
-pipeline sprinkle so the user has a live status view from the beginning — even before
-uplift completes. Populate it with the initial state (Extract in-progress, everything
-else pending) and update it as each phase completes.
-
-**Steps to track in the pipeline sprinkle:**
-
-| Step | Status when | Sub-steps |
-|---|---|---|
-| Extract | in-progress immediately → done when brand-review.html exists | — |
-| Audit | done when uplift-improvements.md exists | 5 tensions count |
-| Brand Review | done with extract | links to brand-review.html |
-| Direction | done when direction.md exists | 3 variants listed |
-| Prototypes | done when all 3 HTML files exist | A · B · C each with view ↗ link |
-| Deploy | in-progress when user clicks Deploy → | Blocks · Deliverables · DA write · Preview · Publish |
-| Iterate | pending until user requests changes | — |
-
-**Updating the pipeline after each phase:**
-Feed the pipeline scoop after each major phase:
-```
-feed_scoop("<slug>-pipeline", "Mark step '<id>' as done. Meta: '<summary>'. Link: '<url>'. Reload.")
-```
-
-**Auto-refresh:** The pipeline sprinkle polls `admin.hlx.page/status/<org>/<repo>/<branch>/`
-every 30s to keep Preview and Publish sub-steps current without manual updates.
-
-**Template:** `/workspace/skills/stardust-demo/templates/pipeline.shtml`
-
-### Step 2 — Take prototype screenshots
-
-For each prototype, take a Playwright screenshot and store it for use in the variants sprinkle:
+Once the uplift scoop completes, launch the workflow:
 ```bash
-playwright-cli screenshot --tab <id> /shared/<slug>-variant-A.png
-playwright-cli screenshot --tab <id> /shared/<slug>-variant-B.png
-playwright-cli screenshot --tab <id> /shared/<slug>-variant-C.png
-```
-These screenshots are referenced by the variants sprinkle template via the `{{SCREENSHOT_A}}`, `{{SCREENSHOT_B}}`, `{{SCREENSHOT_C}}` tokens.
-
-### Step 3 — Generate the three sprinkles
-
-Use the template system in `/workspace/skills/stardust-demo/templates/` to generate
-populated `.shtml` files for each sprinkle. The templates use `{{PLACEHOLDER}}` tokens
-that you replace with the actual content from the uplift artifacts.
-
-Write each sprinkle to `/shared/sprinkles/<slug>-<type>/<slug>-<type>.shtml`.
-
-### Step 4 — Open all three sprinkles
-
-```bash
-sprinkle open <slug>-audit
-sprinkle open <slug>-brand-review
-sprinkle open <slug>-variants
+workflow run /workspace/stardust-demo-skills/stardust-demo/stardust-demo.workflow.js \
+  --args '{"url":"<URL>","slug":"<slug>"}'
 ```
 
-### Step 5 — Report
+The workflow handles (in parallel):
+- Serving prototypes + taking screenshots
+- Generating and opening all 4 sprinkles from templates (pipeline, brand-review, audit, variants)
 
-Print a summary:
+### Step 3 — Report
+
+When the workflow completes (delivered as a lick), print:
 ```
 demo ready — <URL>
 
 sprinkles open:
+  <slug>-pipeline       — live status
   <slug>-audit          — 5 tensions
   <slug>-brand-review   — brand extraction
   <slug>-variants       — 3 variants, B recommended
 
-files saved to github.com/QuentinVecchio/stardust-sprinkles (if push requested)
+Next: pick a variant (click Deploy → in the variants sprinkle)
 ```
 
 ## Template system
