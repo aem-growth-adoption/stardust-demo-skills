@@ -17,10 +17,14 @@ Orchestrates `stardust:uplift` → sprinkle generation → user variant selectio
 ## Prerequisites
 
 - `stardust` skill installed (`upskill adobe/skills --skill stardust`)
-- `impeccable` skill available at `/workspace/skills/impeccable/`
+- `impeccable` skill installed (`upskill pbakaus/impeccable`)
 - DA token available via `oauth-token adobe`
 - GitHub access configured by the Stardust Lab
 - EDS repo + DA org pre-created by the Stardust Lab
+
+## Model
+
+Do NOT set a `model` on scoops — all scoops inherit the cone's model. This avoids failures when a specific model isn't available in the environment.
 
 ## Slug Derivation
 
@@ -29,6 +33,18 @@ Derive from URL hostname + 4 random hex chars:
 - `https://www.knack.com` → `knack-9c2e`
 
 Strip `www.`, take first segment before `.`, lowercase, append `-$(openssl rand -hex 2)`.
+
+## CRITICAL — Pipeline Sprinkle Updates
+
+The pipeline sprinkle is the user's only window into what's happening. It MUST be updated in real time.
+
+**During uplift:** the uplift scoop itself pushes status updates and opens sprinkles progressively as artifacts land. The cone does NOT need to wake up for this — the scoop handles it directly via `sprinkle send` and `sprinkle open`.
+
+**During deploy:** the cone pushes `active` before spawning the deploy scoop, and `done` when it completes.
+
+Format: `sprinkle send {{SLUG}}-pipeline '{"step":"<id>","status":"active|done","summary":"...","link":"..."}'`
+
+Step IDs in order: `extract`, `audit`, `brand-review`, `direction`, `prototypes`, `deploy`
 
 ## Procedure
 
@@ -39,9 +55,9 @@ Strip `www.`, take first segment before `.`, lowercase, append `-$(openssl rand 
 3. Replace `{{URL}}` and `{{SLUG}}`
 4. Write to `/shared/sprinkles/{{SLUG}}-pipeline/{{SLUG}}-pipeline.shtml`
 5. Run: `sprinkle open {{SLUG}}-pipeline`
-6. Push initial status:
+6. Push initial status IMMEDIATELY — the user must see activity from the first second:
    ```
-   sprinkle send {{SLUG}}-pipeline '{"step":"extract","status":"active","summary":"Starting extraction..."}'
+   sprinkle send {{SLUG}}-pipeline '{"step":"extract","status":"active","summary":"Crawling homepage..."}'
    ```
 
 ### Step 2 — Run uplift (scoop)
@@ -51,7 +67,6 @@ Spawn the uplift scoop:
 ```
 scoop_scoop({
   name: "{{SLUG}}-uplift",
-  model: "claude-opus-4-6",
   writablePaths: ["/scoops/{{SLUG}}-uplift/", "/shared/", "/workspace/stardust/"]
 })
 ```
@@ -69,32 +84,84 @@ Then follow those instructions EXACTLY for URL: {{URL}}
 - URL: {{URL}}
 - Slug: {{SLUG}}
 - State dir: /workspace/stardust/
-- Output contract: write status updates to /shared/stardust-demo/uplift-status.json
+- Pipeline sprinkle: {{SLUG}}-pipeline
 
 ## DA Auth
 
 - Get IMS token: DA_TOKEN=$(oauth-token adobe)
 
-## Progress updates
+## CRITICAL — Progressive sprinkle updates
 
-After each major phase completes, write a status file:
-/shared/stardust-demo/uplift-status.json
+You are responsible for keeping the user informed IN REAL TIME. After each uplift phase
+completes, you MUST immediately:
+1. Push the completed phase as `done` to the pipeline sprinkle
+2. Push the next phase as `active`
+3. If the phase produced a reviewable artifact (audit, brand-review, prototypes), populate
+   and open its dedicated sprinkle
 
-Format: {"phase":"extract|audit|brand-review|direction|prototypes","status":"done","summary":"..."}
+DO NOT batch updates. DO NOT wait until the end. Push after EVERY phase.
 
-Phases in order: extract → audit → brand-review → direction → prototypes
+### After EXTRACT completes:
+sprinkle send {{SLUG}}-pipeline '{"step":"extract","status":"done","summary":"Homepage crawled"}'
+sprinkle send {{SLUG}}-pipeline '{"step":"audit","status":"active","summary":"Analyzing design tensions..."}'
+
+### After AUDIT completes:
+sprinkle send {{SLUG}}-pipeline '{"step":"audit","status":"done","summary":"5 tensions identified"}'
+sprinkle send {{SLUG}}-pipeline '{"step":"brand-review","status":"active","summary":"Extracting brand surface..."}'
+
+Then OPEN the audit sprinkle:
+1. Read /workspace/stardust/uplift-improvements.md
+2. Parse 5 tensions into JSON: [{"category":"...","title":"...","body":"..."},...]
+   Valid categories: dated-pattern, ia-clutter, density, cliche, missed-opportunity
+3. Read /workspace/skills/stardust-demo/templates/audit.shtml.tpl
+4. Replace {{URL}} with "{{URL}}", {{SLUG}} with "{{SLUG}}", {{TENSIONS_JSON}} with the JSON array
+5. mkdir -p /shared/sprinkles/{{SLUG}}-audit
+6. Write populated template to /shared/sprinkles/{{SLUG}}-audit/{{SLUG}}-audit.shtml
+7. Run: sprinkle open {{SLUG}}-audit
+
+### After BRAND-REVIEW completes:
+sprinkle send {{SLUG}}-pipeline '{"step":"brand-review","status":"done","summary":"Palette + type extracted"}'
+sprinkle send {{SLUG}}-pipeline '{"step":"direction","status":"active","summary":"Defining variant directions..."}'
+
+Then OPEN the brand review sprinkle:
+1. Serve: open /workspace/stardust/current/brand-review.html → capture the preview URL
+2. Read /workspace/skills/stardust-demo/templates/brand-review.shtml.tpl
+3. Replace {{URL}} with "{{URL}}", {{BRAND_REVIEW_URL}} with the preview URL
+4. mkdir -p /shared/sprinkles/{{SLUG}}-brand-review
+5. Write to /shared/sprinkles/{{SLUG}}-brand-review/{{SLUG}}-brand-review.shtml
+6. Run: sprinkle open {{SLUG}}-brand-review
+
+### After DIRECTION completes:
+sprinkle send {{SLUG}}-pipeline '{"step":"direction","status":"done","summary":"3 variant directions resolved"}'
+sprinkle send {{SLUG}}-pipeline '{"step":"prototypes","status":"active","summary":"Generating 3 HTML prototypes..."}'
+
+### After PROTOTYPES complete:
+sprinkle send {{SLUG}}-pipeline '{"step":"prototypes","status":"done","summary":"3 variants ready for review"}'
+
+Then OPEN the variants sprinkle:
+1. Serve all 3 prototypes:
+   open /workspace/stardust/prototypes/home-A-proposed.html
+   open /workspace/stardust/prototypes/home-B-proposed.html
+   open /workspace/stardust/prototypes/home-C-cinematic.html
+2. Take screenshots via playwright-cli screenshot of each
+3. Serve screenshots: open /shared/{{SLUG}}-variant-A.png etc.
+4. Read /workspace/stardust/direction.md — extract variant titles, pitches, what-if questions, moves, roles, which is recommended, shared fixes
+5. Read /workspace/skills/stardust-demo/templates/variants.shtml.tpl
+6. Replace all placeholders:
+   - {{URL}}, {{SLUG}}
+   - {{SCREENSHOT_A}}, {{SCREENSHOT_B}}, {{SCREENSHOT_C}} — served screenshot URLs
+   - {{VARIANT_A_URL}}, {{VARIANT_B_URL}}, {{VARIANT_C_URL}} — served prototype URLs
+   - {{VARIANT_A_TITLE}}, {{VARIANT_A_PITCH}}, {{VARIANT_A_WHATIF}}, {{VARIANT_A_MOVES_JSON}}, {{VARIANT_A_ROLE}}
+   - Same for B and C
+   - {{FIXES_JSON}} — JSON array of shared fix strings
+   - {{RECOMMENDED}} — letter of recommended variant (A, B, or C)
+7. mkdir -p /shared/sprinkles/{{SLUG}}-variants
+8. Write to /shared/sprinkles/{{SLUG}}-variants/{{SLUG}}-variants.shtml
+9. Run: sprinkle open {{SLUG}}-variants
 ```
 
-**While uplift runs:**
-- Yield after spawning. Do NOT poll.
-- When the scoop-ready lick arrives, read `/shared/stardust-demo/uplift-status.json`
-- Push status to pipeline sprinkle immediately:
-  ```
-  sprinkle send {{SLUG}}-pipeline "$(cat /shared/stardust-demo/uplift-status.json)"
-  ```
-
 **If uplift asks about existing state** (prior `state.json` for same URL):
-- Relay the question to the user in chat
+- The scoop surfaces the question. The cone relays it to the user.
 - Feed the user's answer back: `feed_scoop("{{SLUG}}-uplift", "User answered: <answer>. Continue.")`
 
 **Uplift outputs when complete:**
@@ -106,68 +173,11 @@ Phases in order: extract → audit → brand-review → direction → prototypes
 - `/workspace/stardust/prototypes/home-C-cinematic.html`
 - `/workspace/stardust/direction.md` — variant directions + recommendation
 
-### Step 3 — Open remaining sprinkles (inline)
+### Step 3 — Verify sprinkles are open
 
-Once the uplift scoop completes, the cone does all of this inline (no scoops):
-
-#### 3a. Audit sprinkle
-
-1. Read `/workspace/stardust/uplift-improvements.md`
-2. Parse the 5 tensions into a JSON array:
-   ```json
-   [
-     {"category":"dated-pattern","title":"...","body":"..."},
-     {"category":"ia-clutter","title":"...","body":"..."},
-     ...
-   ]
-   ```
-   Valid categories: `dated-pattern`, `ia-clutter`, `density`, `cliche`, `missed-opportunity`
-3. Read `/workspace/skills/stardust-demo/templates/audit.shtml.tpl`
-4. Replace `{{URL}}`, `{{SLUG}}`, `{{TENSIONS_JSON}}` (JSON-escaped into the template)
-5. Write to `/shared/sprinkles/{{SLUG}}-audit/{{SLUG}}-audit.shtml`
-6. Run: `sprinkle open {{SLUG}}-audit`
-
-#### 3b. Brand review sprinkle
-
-1. Serve the brand review: `open /workspace/stardust/current/brand-review.html`
-2. Get the preview URL from the `open` command output
-3. Read `/workspace/skills/stardust-demo/templates/brand-review.shtml.tpl`
-4. Replace `{{URL}}`, `{{BRAND_REVIEW_URL}}`
-5. Write to `/shared/sprinkles/{{SLUG}}-brand-review/{{SLUG}}-brand-review.shtml`
-6. Run: `sprinkle open {{SLUG}}-brand-review`
-
-#### 3c. Variants sprinkle
-
-1. Serve all 3 prototypes:
-   ```
-   open /workspace/stardust/prototypes/home-A-proposed.html
-   open /workspace/stardust/prototypes/home-B-proposed.html
-   open /workspace/stardust/prototypes/home-C-cinematic.html
-   ```
-2. Take screenshots of each (via `playwright-cli screenshot`)
-3. Serve screenshots: `open /shared/{{SLUG}}-variant-A.png` etc.
-4. Read `/workspace/stardust/direction.md` — extract:
-   - Variant titles, pitches, what-if questions, moves, roles
-   - Which variant is recommended
-   - Shared fixes across all variants
-5. Read `/workspace/skills/stardust-demo/templates/variants.shtml.tpl`
-6. Replace all placeholders:
-   - `{{URL}}`, `{{SLUG}}`
-   - `{{SCREENSHOT_A}}`, `{{SCREENSHOT_B}}`, `{{SCREENSHOT_C}}`
-   - `{{VARIANT_A_URL}}`, `{{VARIANT_B_URL}}`, `{{VARIANT_C_URL}}`
-   - `{{VARIANT_A_TITLE}}`, `{{VARIANT_A_PITCH}}`, `{{VARIANT_A_WHATIF}}`, `{{VARIANT_A_MOVES_JSON}}`, `{{VARIANT_A_ROLE}}`
-   - Same pattern for B and C
-   - `{{FIXES_JSON}}` — JSON array of shared fix strings
-   - `{{RECOMMENDED}}` — letter of recommended variant (A, B, or C)
-7. Write to `/shared/sprinkles/{{SLUG}}-variants/{{SLUG}}-variants.shtml`
-8. Run: `sprinkle open {{SLUG}}-variants`
-
-#### 3d. Update pipeline
-
-Push final uplift status:
-```
-sprinkle send {{SLUG}}-pipeline '{"step":"prototypes","status":"done","summary":"3 variants ready for review"}'
-```
+When the uplift scoop completes (scoop-ready lick), verify all 4 sprinkles are open.
+The scoop should have opened audit, brand-review, and variants progressively.
+If any are missing, open them now inline using the same template population steps above.
 
 ### Step 4 — Wait for variant selection (lick)
 
@@ -183,16 +193,15 @@ When the cone receives this lick:
 
 ### Step 5 — Deploy (scoop)
 
-1. Push pipeline status:
+1. Push pipeline status FIRST — before spawning the scoop:
    ```
-   sprinkle send {{SLUG}}-pipeline '{"step":"deploy","status":"active","summary":"Deploying variant {{VARIANT}}..."}'
+   sprinkle send {{SLUG}}-pipeline '{"step":"deploy","status":"active","summary":"Deploying variant {{VARIANT}} to EDS..."}'
    ```
 
 2. Spawn deploy scoop:
    ```
    scoop_scoop({
      name: "{{SLUG}}-deploy",
-     model: "claude-opus-4-6",
      writablePaths: ["/scoops/{{SLUG}}-deploy/", "/shared/", "/workspace/{REPO}/"]
    })
    ```
@@ -273,13 +282,6 @@ If `/workspace/stardust/state.json` exists for the same URL:
 |------|--------|-------------|
 | `{action: "select-variant", variant: "A\|B\|C"}` | variants sprinkle | Confirm with user, spawn deploy |
 
-## Status Update Contract (cone → pipeline sprinkle)
-
-```json
-{"step": "<step-id>", "status": "active|done", "summary": "...", "link": "..."}
-```
-
-Step IDs: `extract`, `audit`, `brand-review`, `direction`, `prototypes`, `deploy`
 
 ## Design System
 
