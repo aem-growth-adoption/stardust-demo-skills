@@ -59,6 +59,17 @@ Format: `sprinkle send {{SLUG}}-pipeline '{"step":"<id>","status":"active|done",
 
 Step IDs in order: `extract`, `audit`, `brand-review`, `direction`, `prototypes`, `deploy`
 
+### Pipeline State Persistence
+
+Every time you push a pipeline update, you MUST also rewrite the sprinkle's `.shtml` file with the updated `{{INITIAL_STATE_JSON}}` reflecting all current step statuses. This ensures followers who join mid-session see the full accumulated progress — not just a blank initial state.
+
+Procedure after every `sprinkle send`:
+1. Update your in-memory steps array with the new status
+2. Rewrite `/shared/sprinkles/{{SLUG}}-pipeline/{{SLUG}}-pipeline.shtml` with the updated state in the data island
+3. The `sprinkle send` pushes the live update to connected followers; the rewritten file ensures new joiners get current state
+
+This is non-negotiable — without it, late-joining followers see all steps as "pending".
+
 ## Procedure
 
 ### Step 1 — Setup & open pipeline sprinkle
@@ -90,8 +101,8 @@ Spawn the first uplift scoop:
 
 ```
 scoop_scoop({
-  name: "{{SLUG}}-uplift-1",
-  writablePaths: ["/scoops/{{SLUG}}-uplift-1/", "/shared/", "/workspace/stardust/"]
+  name: "{{SLUG}}-uplift-1-scoop",
+  writablePaths: ["/shared/"]
 })
 ```
 
@@ -125,14 +136,22 @@ Write a completion marker when done:
 
 - URL: {{URL}}
 - Slug: {{SLUG}}
-- State dir: /workspace/stardust/
+- State dir: /shared/stardust/
 
 ## DA Auth
 
 - Get IMS token: DA_TOKEN=$(oauth-token adobe)
 ```
 
-**When scoop completes, the cone IMMEDIATELY:**
+**When scoop completes, verify key files exist at `/shared/stardust/`:**
+- `uplift-improvements.md`
+- `current/brand-review.html`
+- `current/_brand-extraction.json`
+- `current/PRODUCT.md`, `current/DESIGN.md`, `current/DESIGN.json`
+
+**Then the cone does ALL of the following IN PARALLEL (not sequentially):**
+
+**Track A — Report sprinkles (runs concurrently with Track B):**
 
 1. Pushes pipeline updates:
    ```
@@ -147,14 +166,19 @@ Write a completion marker when done:
    - `git add deliverables/ && git commit && git push`
    - Trigger EDS preview for both pages
 
-3. Opens audit + brand-review sprinkles (don't wait for Phase 2):
+3. Opens audit + brand-review sprinkles:
    - Read `audit.shtml.tpl`, replace `{{URL}}`, `{{AUDIT_URL}}` → write & `sprinkle open`
    - Read `brand-review.shtml.tpl`, replace `{{URL}}`, `{{BRAND_REVIEW_URL}}` → write & `sprinkle open`
 
-4. Then pushes direction as active and spawns Phase 2:
+**Track B — Phase 2 spawn (runs concurrently with Track A):**
+
+1. Pushes direction as active:
    ```
    sprinkle send {{SLUG}}-pipeline '{"step":"direction","status":"active","summary":"Defining variant directions..."}'
    ```
+2. Spawns the Phase 2 uplift scoop immediately (see Step 3)
+
+**IMPORTANT:** Do NOT wait for Track A (EDS commits, sprinkle opens) to finish before starting Track B. The Phase 2 scoop only needs `/shared/stardust/` outputs from Phase 1 — it doesn't depend on the EDS deliverables or sprinkles.
 
 ### Step 3 — Uplift Phase 2: Direction + Prototypes (scoop)
 
@@ -162,8 +186,8 @@ Spawn the second uplift scoop:
 
 ```
 scoop_scoop({
-  name: "{{SLUG}}-uplift-2",
-  writablePaths: ["/scoops/{{SLUG}}-uplift-2/", "/shared/", "/workspace/stardust/"]
+  name: "{{SLUG}}-uplift-2-scoop",
+  writablePaths: ["/shared/"]
 })
 ```
 
@@ -185,7 +209,7 @@ generating HTML prototypes. This is what makes the output high-quality.
 ## IMPORTANT — SCOPE LIMIT
 
 The first 3 phases (extract, audit, brand-review) are ALREADY DONE.
-Their outputs are in /workspace/stardust/. Do NOT re-run them.
+Their outputs are in /shared/stardust/. Do NOT re-run them.
 
 You are responsible for the LAST 2 PHASES ONLY:
 4. Direction (define 3 variant directions from the audit + brand review)
@@ -198,34 +222,40 @@ Write a completion marker when done:
 
 - URL: {{URL}}
 - Slug: {{SLUG}}
-- State dir: /workspace/stardust/
+- State dir: /shared/stardust/
 - Prior outputs already available:
-  - /workspace/stardust/uplift-improvements.md (5 tensions)
-  - /workspace/stardust/current/brand-review.html
-  - /workspace/stardust/current/_brand-extraction.json
-  - /workspace/stardust/current/PRODUCT.md
-  - /workspace/stardust/current/DESIGN.md
-  - /workspace/stardust/current/DESIGN.json
+  - /shared/stardust/uplift-improvements.md (5 tensions)
+  - /shared/stardust/current/brand-review.html
+  - /shared/stardust/current/_brand-extraction.json
+  - /shared/stardust/current/PRODUCT.md
+  - /shared/stardust/current/DESIGN.md
+  - /shared/stardust/current/DESIGN.json
 
 ## DA Auth
 
 - Get IMS token: DA_TOKEN=$(oauth-token adobe)
 ```
 
-**When scoop completes, the cone pushes:**
+**When scoop completes, verify key files exist at `/shared/stardust/`:**
+- `prototypes/home-A-proposed.html`
+- `prototypes/home-B-proposed.html`
+- `prototypes/home-C-cinematic.html`
+- `direction.md`
+
+**Then pushes pipeline updates:**
 ```
 sprinkle send {{SLUG}}-pipeline '{"step":"direction","status":"done","summary":"3 variant directions resolved"}'
 sprinkle send {{SLUG}}-pipeline '{"step":"prototypes","status":"done","summary":"3 variants ready for review"}'
 ```
 
 **Uplift outputs when both scoops are done:**
-- `/workspace/stardust/uplift-improvements.md` — 5 tensions
-- `/workspace/stardust/current/brand-review.html` — brand review page
-- `/workspace/stardust/current/_brand-extraction.json` — palette + type
-- `/workspace/stardust/prototypes/home-A-proposed.html`
-- `/workspace/stardust/prototypes/home-B-proposed.html`
-- `/workspace/stardust/prototypes/home-C-cinematic.html`
-- `/workspace/stardust/direction.md` — variant directions + recommendation
+- `/shared/stardust/uplift-improvements.md` — 5 tensions
+- `/shared/stardust/current/brand-review.html` — brand review page
+- `/shared/stardust/current/_brand-extraction.json` — palette + type
+- `/shared/stardust/prototypes/home-A-proposed.html`
+- `/shared/stardust/prototypes/home-B-proposed.html`
+- `/shared/stardust/prototypes/home-C-cinematic.html`
+- `/shared/stardust/direction.md` — variant directions + recommendation
 
 ### Step 4 — Commit prototype deliverables, take screenshots, open variants sprinkle
 
@@ -238,9 +268,9 @@ Now handle prototypes + variants sprinkle.
 
 ```bash
 cd {repo}
-cp /workspace/stardust/prototypes/home-A-proposed.html deliverables/variant-A.html
-cp /workspace/stardust/prototypes/home-B-proposed.html deliverables/variant-B.html
-cp /workspace/stardust/prototypes/home-C-cinematic.html deliverables/variant-C.html
+cp /shared/stardust/prototypes/home-A-proposed.html deliverables/variant-A.html
+cp /shared/stardust/prototypes/home-B-proposed.html deliverables/variant-B.html
+cp /shared/stardust/prototypes/home-C-cinematic.html deliverables/variant-C.html
 git add deliverables/variant-A.html deliverables/variant-B.html deliverables/variant-C.html
 git commit -m "Add variant prototypes"
 git push origin {branch}
@@ -297,7 +327,7 @@ done
 
 #### 4c. Open variants sprinkle
 
-1. Read `/workspace/stardust/direction.md` — extract:
+1. Read `/shared/stardust/direction.md` — extract:
    - Per variant: key (A/B/C), title, pitch, what-if question, moves array, role
    - Which variant is recommended
    - Shared fixes across all variants
@@ -346,7 +376,7 @@ When the cone receives this lick:
 
 ### Step 6 — Deploy
 
-The deploy scoop handles everything: code conversion, git push, DA upload, and preview.
+The cone mounts DA before spawning the deploy scoop, then the scoop handles code conversion, git push, DA content write, and preview trigger.
 
 #### 6a. Push pipeline status
 
@@ -354,12 +384,22 @@ The deploy scoop handles everything: code conversion, git push, DA upload, and p
 sprinkle send {{SLUG}}-pipeline '{"step":"deploy","status":"active","summary":"Deploying variant {{VARIANT}} to EDS..."}'
 ```
 
-#### 6b. Spawn deploy scoop
+#### 6b. Cone mounts DA (before scoop spawn)
+
+The cone MUST mount DA itself — do NOT delegate mounting to the scoop.
+
+```bash
+mount --source da://{org}/{repo} /mnt/da
+```
+
+Verify the mount succeeded (`ls /mnt/da` should list existing content or be empty). Only proceed to spawn the scoop after the mount is confirmed.
+
+#### 6c. Spawn deploy scoop
 
 ```
 scoop_scoop({
-  name: "{{SLUG}}-deploy",
-  writablePaths: ["/scoops/{{SLUG}}-deploy/", "/shared/", "/workspace/{REPO}/", "/mnt/"]
+  name: "{{SLUG}}-deploy-scoop",
+  writablePaths: ["/shared/", "/workspace/{REPO}/", "/mnt/"]
 })
 ```
 
@@ -379,30 +419,24 @@ and content pages should meet impeccable's quality bar.
 
 ## Context
 
-- Prototype to deploy: /workspace/stardust/prototypes/home-{{VARIANT}}-proposed.html
-  (if variant C: /workspace/stardust/prototypes/home-C-cinematic.html)
+- Prototype to deploy: /shared/stardust/prototypes/home-{{VARIANT}}-proposed.html
+  (if variant C: /shared/stardust/prototypes/home-C-cinematic.html)
 - EDS repo: /workspace/{REPO}
 - Org: {org}
 - Repo: {repo}
 - Branch: {branch}
 - State dir: /shared/stardust-demo/
 
-## DA Auth — IMPORTANT
+## DA Content — IMPORTANT
 
-The `oauth-token adobe` command returns an opaque token. This token works
-for `admin.hlx.page` but NOT for `admin.da.live` (returns 401).
+DA is ALREADY MOUNTED at /mnt/da by the cone. Do NOT run `mount` yourself.
 
-To write content to DA, use the mount command instead:
-
-1. Mount DA:
-   mount --source da://{org}/{repo} /mnt/da
-
-2. Write content files:
+To write content to DA:
    cp content/index.html /mnt/da/index.html
    cp content/nav.html /mnt/da/nav.html
    cp content/footer.html /mnt/da/footer.html
 
-3. Trigger preview (hlx admin accepts the opaque token):
+To trigger preview (hlx admin accepts the opaque token):
    DA_TOKEN=$(oauth-token adobe)
    curl -X POST -H "Authorization: Bearer $DA_TOKEN" \
      "https://admin.hlx.page/preview/{org}/{repo}/{branch}/index"
@@ -412,7 +446,6 @@ To write content to DA, use the mount command instead:
      "https://admin.hlx.page/preview/{org}/{repo}/{branch}/footer"
 
 DO NOT use curl against admin.da.live — it will fail with 401.
-Always use mount for DA writes.
 
 ## Git rules
 
@@ -437,7 +470,7 @@ Write to /shared/stardust-demo/deploy-status.json:
 - Present questions to the user in chat
 - Feed answers back: `feed_scoop("{{SLUG}}-deploy", "Answers: ...")`
 
-#### 6c. On completion
+#### 6d. On completion
 
 When the deploy scoop finishes (status file written):
 
@@ -463,10 +496,10 @@ Deployed: {{PREVIEW_URL}}
 
 ## Re-run Behavior
 
-If `/workspace/stardust/state.json` exists for the same URL:
+If `/shared/stardust/state.json` exists for the same URL:
 - Ask: "I have an existing uplift for `{{URL}}`. Re-run or reuse?"
 - If reuse: skip Steps 2-3, go straight to Step 4 (prototypes + variants)
-- If re-run: clear `/workspace/stardust/` and start fresh
+- If re-run: clear `/shared/stardust/` and start fresh
 
 ## Lick Events
 
@@ -479,6 +512,7 @@ If `/workspace/stardust/state.json` exists for the same URL:
 - **Cherry followers can't open URLs from sprinkles** — iframe sandbox blocks navigation. Workaround: cone posts clickable URLs in chat.
 - **Sprinkle file size limit** — keep under ~350KB total. Use EDS URLs for images rather than base64 embedding.
 - **Sprinkle overwrite doesn't push to followers** — always mint fresh names, never reuse.
+- **All scoop outputs go to `/shared/stardust/`** — `/shared/` is not sandboxed, so cone and other scoops can read outputs directly without copying. Never use `/workspace/stardust/` for scoop outputs.
 
 ## Design System
 
