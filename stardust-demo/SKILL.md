@@ -486,7 +486,52 @@ sprinkle send {{SLUG}}-pipeline '{"step":"deploy","status":"done","summary":"Liv
 
 **PREVIEW_URL** = `https://{branch}--{repo}--{org}.aem.page/`
 
-### Step 7 — Report
+### Step 7 — Open completion sprinkle
+
+Read `/workspace/skills/stardust-demo/templates/complete.shtml.tpl`, replace `{{SLUG}}` and `{{COMPLETE_JSON}}`.
+
+The data island uses this shape:
+```json
+{
+  "liveUrl": "https://{branch}--{repo}--{org}.aem.page/",
+  "stats": [
+    { "value": "4", "label": "blocks created" },
+    { "value": "12", "label": "assets uploaded" }
+  ],
+  "nextSteps": [
+    {
+      "icon": "✏️",
+      "title": "Edit your content",
+      "description": "Open Experience Workspace to edit pages, images, and copy",
+      "url": "https://da.live/canvas#/{org}/{repo}/index",
+      "linkLabel": "open"
+    },
+    {
+      "icon": "🚀",
+      "title": "Migrate your site",
+      "description": "Use Edge Migration Accelerator to bring over more pages",
+      "url": "https://ema.aem.live",
+      "linkLabel": "open"
+    },
+    {
+      "icon": "💬",
+      "title": "Reach out to Adobe",
+      "description": "Learn more about AEM Edge Delivery Services",
+      "url": "mailto:aem-growth@adobe.com",
+      "linkLabel": "contact"
+    }
+  ]
+}
+```
+
+Populate `stats` from the deploy scoop's output (blocks created, assets uploaded — read from `/shared/stardust-demo/deploy-status.json` if available, or count from the git commit).
+
+Write to `/shared/sprinkles/{{SLUG}}-complete/{{SLUG}}-complete.shtml` and run:
+```
+sprinkle open {{SLUG}}-complete
+```
+
+### Step 8 — Report
 
 ```
 ✓ Demo ready — {{URL}}
@@ -496,6 +541,7 @@ Sprinkles open:
   {{SLUG}}-audit          — 5 tensions found
   {{SLUG}}-brand-review   — brand extraction
   {{SLUG}}-variants       — 3 variants
+  {{SLUG}}-complete       — deploy summary + next steps
 
 Deployed: {{PREVIEW_URL}}
 ```
