@@ -372,7 +372,8 @@
   var VARIANTS = DATA.variants;
   var FIXES = DATA.fixes;
   var RECOMMENDED = DATA.recommended;
-  var selectedVariant = null;
+  var saved = slicc.getState();
+  var selectedVariant = (saved && saved.selectedVariant) || null;
 
   function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -435,6 +436,7 @@
     if (!btn || selectedVariant) return;
     var variant = btn.getAttribute('data-variant');
     selectedVariant = variant;
+    slicc.setState({ selectedVariant: variant });
     renderGallery();
     slicc.lick({ action: 'select-variant', data: { variant: variant } });
   }

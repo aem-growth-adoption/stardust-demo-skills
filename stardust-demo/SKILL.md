@@ -42,6 +42,7 @@ Strip `www.`, take first segment before `.`, lowercase, append `-$(openssl rand 
 - **Cone owns ALL `sprinkle send` calls** — never delegate pipeline updates to scoops
 - **Always mint fresh sprinkle names** per demo — never reuse/overwrite
 - **Commit deliverables to EDS BEFORE opening sprinkles** that reference them
+- **Commit brand-review assets** (logos, screenshots in `assets/`) alongside brand-review.html to `deliverables/`
 - **Screenshots via live EDS URLs** — never `file://` paths, never `/workspace/` paths
 - **Use EDS URLs for screenshots** in the variants sprinkle (commit .png files to deliverables/)
 - **Lick payloads use `{action, data: {}}`** — extra sibling keys get stripped by the bridge
@@ -146,6 +147,7 @@ Write a completion marker when done:
 **When scoop completes, verify key files exist at `/shared/stardust/`:**
 - `uplift-improvements.md`
 - `current/brand-review.html`
+- `current/assets/` (logos, screenshots referenced by brand-review.html)
 - `current/_brand-extraction.json`
 - `current/PRODUCT.md`, `current/DESIGN.md`, `current/DESIGN.json`
 
@@ -163,8 +165,12 @@ Write a completion marker when done:
 2. Commits audit + brand-review deliverables to EDS (so sprinkles can reference them):
    - Build `audit.html` from template (see Step 4 for details)
    - Copy `brand-review.html` from workspace
+   - Copy `assets/` directory from workspace (logos, screenshots referenced by brand-review.html):
+     ```
+     cp -r /shared/stardust/current/assets {repo}/deliverables/assets
+     ```
    - `git add deliverables/ && git commit && git push`
-   - Trigger EDS preview for both pages
+   - Trigger EDS preview for both pages AND assets (so images resolve)
 
 3. Opens audit + brand-review sprinkles:
    - Read `audit.shtml.tpl`, replace `{{URL}}`, `{{AUDIT_URL}}` → write & `sprinkle open`
