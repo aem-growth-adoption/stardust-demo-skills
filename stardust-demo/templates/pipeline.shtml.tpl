@@ -185,6 +185,16 @@
       gap: 8px;
     }
     .step-meta { font: 500 11.5px/1.4 var(--mono); color: var(--fg-dim); }
+    .step-timer {
+      font: 500 10px/1 var(--mono);
+      color: var(--fg-faint);
+      letter-spacing: 0.04em;
+      margin-left: auto;
+      flex: none;
+      padding-top: 2px;
+    }
+    .step[data-status="active"] .step-timer { color: var(--amber-deep); }
+    .step[data-status="done"] .step-timer { color: var(--success); }
     .step-link {
       font: 500 11px/1 var(--mono);
       color: var(--amber-deep);
@@ -262,9 +272,17 @@
 
     var state = {
       steps: STEPS.map(function(s) {
-        return { id: s.id, status: 'pending', summary: s.summary, link: null };
+        return { id: s.id, status: 'pending', summary: s.summary, link: null, startedAt: null, completedAt: null };
       })
     };
+
+    function formatDuration(ms) {
+      var secs = Math.floor(ms / 1000);
+      var m = Math.floor(secs / 60);
+      var s = secs % 60;
+      if (m > 0) return m + 'm ' + (s < 10 ? '0' : '') + s + 's';
+      return s + 's';
+    }
 
     function iconHTML(status) {
       var cls = 'step-icon ' + status;
@@ -290,12 +308,20 @@
           ? '<a class="step-link" href="' + step.link + '" target="_blank" rel="noopener">view ↗</a>'
           : '';
 
+        var timerHtml = '';
+        if (step.status === 'done' && step.startedAt && step.completedAt) {
+          timerHtml = '<span class="step-timer">' + formatDuration(step.completedAt - step.startedAt) + '</span>';
+        } else if (step.status === 'active' && step.startedAt) {
+          timerHtml = '<span class="step-timer" data-started="' + step.startedAt + '"></span>';
+        }
+
         el.innerHTML = '<div class="step-row">' +
           iconHTML(step.status) +
           '<div class="step-content">' +
             '<div class="step-label">' + step.id.replace(/-/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); }) + ' ' + linkHtml + '</div>' +
             '<div class="step-meta">' + (step.summary || '—') + '</div>' +
           '</div>' +
+          timerHtml +
         '</div>';
 
         container.appendChild(el);
@@ -328,13 +354,32 @@
       var idx = state.steps.findIndex(function(s) { return s.id === data.step; });
       if (idx === -1) return;
 
-      if (data.status) state.steps[idx].status = data.status;
+      if (data.status) {
+        if (data.status === 'active' && !state.steps[idx].startedAt) {
+          state.steps[idx].startedAt = Date.now();
+        }
+        if (data.status === 'done' && !state.steps[idx].completedAt) {
+          state.steps[idx].completedAt = Date.now();
+          if (!state.steps[idx].startedAt) state.steps[idx].startedAt = state.steps[idx].completedAt;
+        }
+        state.steps[idx].status = data.status;
+      }
       if (data.summary) state.steps[idx].summary = data.summary;
       if (data.link) state.steps[idx].link = data.link;
 
       slicc.setState(state);
       render();
     });
+
+    // Live ticker for active steps
+    setInterval(function() {
+      var timers = document.querySelectorAll('.step-timer[data-started]');
+      var now = Date.now();
+      timers.forEach(function(el) {
+        var started = parseInt(el.getAttribute('data-started'), 10);
+        el.textContent = formatDuration(now - started);
+      });
+    }, 1000);
 
     render();
     setTimeout(function() { document.body.classList.add('ready'); }, 50);
