@@ -44,13 +44,11 @@ Strip `www.`, take first segment before `.`, lowercase, append `-$(openssl rand 
 
 ## Key Rules
 
-- **Never reference `/workspace/` or `file://` in anything a follower sees** — use EDS URLs
+- **Never reference `/workspace/` or `file://` in anything a follower sees** — screenshots, sprinkle data, variant links all use EDS URLs (commit assets to `deliverables/` first)
 - **Cone owns ALL `sprinkle send` calls** — never delegate pipeline updates to scoops
 - **Always mint fresh sprinkle names** per demo — never reuse/overwrite
 - **Commit deliverables to EDS BEFORE opening sprinkles** that reference them
 - **Commit brand-review assets** (logos, screenshots in `assets/`) alongside brand-review.html to `deliverables/`
-- **Screenshots via live EDS URLs** — never `file://` paths, never `/workspace/` paths
-- **Use EDS URLs for screenshots** in the variants sprinkle (commit .png files to deliverables/)
 - **Lick payloads use `{action, data: {}}`** — extra sibling keys get stripped by the bridge
 - **Cherry followers can't open URLs from sprinkles** — use chat-based fallback (cone posts clickable URL)
 
