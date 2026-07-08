@@ -104,6 +104,8 @@ This is non-negotiable — without it, late-joining followers see all steps as "
 
 ### Step 2 — Uplift Phase 1: Extract + Audit + Brand Review (scoop)
 
+> **Scoop prompt pattern:** All scoops load their primary skill (uplift/deploy), then impeccable, then get scope limits and context. Prompts must be self-contained — scoops never see this SKILL.md.
+
 Spawn the first uplift scoop:
 
 ```
@@ -124,9 +126,7 @@ Then follow those instructions for URL: {{URL}}
 ## STEP 2 — Load impeccable
 
 Run: read_file /workspace/skills/impeccable/SKILL.md
-The uplift skill uses impeccable for design quality. You MUST follow
-impeccable's craft loop when generating or evaluating design work.
-If the uplift skill invokes impeccable, follow those instructions.
+Follow impeccable's craft loop for all design work.
 
 ## IMPORTANT — SCOPE LIMIT
 
@@ -144,10 +144,7 @@ Write a completion marker when done:
 - URL: {{URL}}
 - Slug: {{SLUG}}
 - State dir: /shared/stardust/
-
-## DA Auth
-
-- Get IMS token: DA_TOKEN=$(oauth-token adobe)
+- DA token: DA_TOKEN=$(oauth-token adobe)
 ```
 
 **When scoop completes, verify key files exist at `/shared/stardust/`:**
@@ -214,9 +211,7 @@ Then follow those instructions for URL: {{URL}}
 ## STEP 2 — Load impeccable
 
 Run: read_file /workspace/skills/impeccable/SKILL.md
-The uplift skill uses impeccable for design quality — especially during
-prototype generation. You MUST follow impeccable's craft loop when
-generating HTML prototypes. This is what makes the output high-quality.
+Follow impeccable's craft loop for all design work.
 
 ## IMPORTANT — SCOPE LIMIT
 
@@ -235,6 +230,7 @@ Write a completion marker when done:
 - URL: {{URL}}
 - Slug: {{SLUG}}
 - State dir: /shared/stardust/
+- DA token: DA_TOKEN=$(oauth-token adobe)
 - Prior outputs already available:
   - /shared/stardust/uplift-improvements.md (5 tensions)
   - /shared/stardust/current/brand-review.html
@@ -242,10 +238,6 @@ Write a completion marker when done:
   - /shared/stardust/current/PRODUCT.md
   - /shared/stardust/current/DESIGN.md
   - /shared/stardust/current/DESIGN.json
-
-## DA Auth
-
-- Get IMS token: DA_TOKEN=$(oauth-token adobe)
 ```
 
 **When scoop completes, verify key files exist at `/shared/stardust/`:**
@@ -426,8 +418,7 @@ Then follow those instructions EXACTLY.
 ## STEP 2 — Load impeccable
 
 Run: read_file /workspace/skills/impeccable/SKILL.md
-Use impeccable's craft loop for all HTML/CSS generation — blocks, styles,
-and content pages should meet impeccable's quality bar.
+Follow impeccable's craft loop for all design work.
 
 ## Context
 
