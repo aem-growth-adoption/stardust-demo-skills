@@ -1,10 +1,10 @@
 ---
 name: stardust-demo
 description: |
-  Orchestrate a full stardust presales demo for a website — uplift a URL,
-  open 4 sprinkles (pipeline, audit, brand review, variants), and deploy
-  the user's chosen variant to EDS. Use inside SLICC with DA token and
-  GitHub access pre-configured by the Stardust Lab.
+  Use when demoing a stardust presales redesign of a website inside SLICC —
+  user provides a URL, expects pipeline sprinkles, variant selection, and
+  EDS deployment. Requires DA token, GitHub access, and EDS repo
+  pre-configured by the Stardust Lab.
 user-invocable: true
 ---
 
@@ -13,6 +13,12 @@ user-invocable: true
 One URL in. Four sprinkles open. A deployed EDS site out.
 
 Orchestrates `stardust:uplift` (split across multiple scoops) → deliverables to EDS → sprinkle opening → user variant selection → `stardust:deploy` inside SLICC.
+
+## When NOT to Use
+
+- Single-page uplift without the demo pipeline — use `stardust:uplift` directly
+- Already have prototypes and just need deployment — use `stardust:deploy` directly
+- Running outside SLICC (no scoops/sprinkles available)
 
 ## Prerequisites
 
