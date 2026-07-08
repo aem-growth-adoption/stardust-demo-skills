@@ -50,8 +50,6 @@ Strip `www.`, take first segment before `.`, lowercase, append `-$(openssl rand 
 - **Commit deliverables to EDS BEFORE opening sprinkles** that reference them
 - **Commit brand-review assets** (logos, screenshots in `assets/`) alongside brand-review.html to `deliverables/`
 - **Lick payloads use `{action, data: {}}`** — extra sibling keys get stripped by the bridge
-- **Cherry followers can't open URLs from sprinkles** — use chat-based fallback (cone posts clickable URL)
-
 ## CRITICAL — Pipeline Sprinkle Updates
 
 The cone owns ALL pipeline updates. NEVER delegate `sprinkle send` to a working scoop — scoops are too busy with their main work and will skip or forget updates.
@@ -109,7 +107,7 @@ Spawn the first uplift scoop:
 ```
 scoop_scoop({
   name: "{{SLUG}}-uplift-1-scoop",
-  writablePaths: ["/shared/"]
+  writablePaths: ["/shared/", "/.playwright/", "/tmp/", "/dev/null"]
 })
 ```
 
@@ -136,6 +134,12 @@ You are responsible for the FIRST 3 PHASES ONLY:
 STOP after brand-review completes. Do NOT proceed to direction or prototypes.
 Write a completion marker when done:
   echo '{"phase":"brand-review","status":"done"}' > /shared/stardust-demo/uplift-1-done.json
+
+## Working directory
+
+cd /shared/stardust BEFORE running the uplift skill. This ensures relative
+writes (./stardust/, ./current/, etc.) land inside /shared/ — do NOT run
+from /workspace/ which is read-only.
 
 ## Context
 
@@ -194,7 +198,7 @@ Spawn the second uplift scoop:
 ```
 scoop_scoop({
   name: "{{SLUG}}-uplift-2-scoop",
-  writablePaths: ["/shared/"]
+  writablePaths: ["/shared/", "/.playwright/", "/tmp/", "/dev/null"]
 })
 ```
 
@@ -222,6 +226,11 @@ You are responsible for the LAST 2 PHASES ONLY:
 
 Write a completion marker when done:
   echo '{"phase":"prototypes","status":"done"}' > /shared/stardust-demo/uplift-2-done.json
+
+## Working directory
+
+cd /shared/stardust BEFORE running the uplift skill. This ensures relative
+writes land inside /shared/ — do NOT run from /workspace/ which is read-only.
 
 ## Context
 
@@ -373,8 +382,6 @@ When the cone receives this lick:
 1. Confirm with the user: "Deploy variant {{VARIANT}}? This will convert it to an EDS site."
 2. If confirmed, proceed to Step 6
 3. If the user wants a different variant, wait for another lick
-
-**Cherry follower limitation:** Cherry followers cannot open URLs from within sprinkles (iframe sandbox blocks navigation). When a user wants to preview a variant, post the EDS URL as a clickable link in chat instead.
 
 ### Step 6 — Deploy
 
@@ -556,7 +563,6 @@ If `/shared/stardust/state.json` exists for the same URL:
 
 ## Known Limitations
 
-- **Cherry followers can't open URLs from sprinkles** — iframe sandbox blocks navigation. Workaround: cone posts clickable URLs in chat.
 - **Sprinkle file size limit** — keep under ~350KB total. Use EDS URLs for images rather than base64 embedding.
 - **Sprinkle overwrite doesn't push to followers** — always mint fresh names, never reuse.
 - **All scoop outputs go to `/shared/stardust/`** — `/shared/` is not sandboxed, so cone and other scoops can read outputs directly without copying. Never use `/workspace/stardust/` for scoop outputs.
