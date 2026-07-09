@@ -309,9 +309,12 @@
           : '';
 
         var timerHtml = '';
-        if (step.status === 'done' && step.startedAt && step.completedAt) {
+        if (step.status === 'done') {
+          if (!step.completedAt) step.completedAt = Date.now();
+          if (!step.startedAt) step.startedAt = step.completedAt;
           timerHtml = '<span class="step-timer">' + formatDuration(step.completedAt - step.startedAt) + '</span>';
-        } else if (step.status === 'active' && step.startedAt) {
+        } else if (step.status === 'active') {
+          if (!step.startedAt) step.startedAt = Date.now();
           timerHtml = '<span class="step-timer" data-started="' + step.startedAt + '"></span>';
         }
 
@@ -355,11 +358,11 @@
       if (idx === -1) return;
 
       if (data.status) {
-        if (data.status === 'active' && !state.steps[idx].startedAt) {
-          state.steps[idx].startedAt = data.startedAt || Date.now();
+        if (data.status === 'active') {
+          if (!state.steps[idx].startedAt) state.steps[idx].startedAt = data.startedAt || Date.now();
         }
-        if (data.status === 'done' && !state.steps[idx].completedAt) {
-          state.steps[idx].completedAt = data.completedAt || Date.now();
+        if (data.status === 'done') {
+          if (!state.steps[idx].completedAt) state.steps[idx].completedAt = data.completedAt || Date.now();
           if (!state.steps[idx].startedAt) state.steps[idx].startedAt = data.startedAt || state.steps[idx].completedAt;
         }
         state.steps[idx].status = data.status;
