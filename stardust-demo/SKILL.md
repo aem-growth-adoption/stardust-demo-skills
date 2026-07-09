@@ -49,6 +49,7 @@ Strip `www.`, take first segment before `.`, lowercase, append `-$(openssl rand 
 - **Always mint fresh sprinkle names** per demo — never reuse/overwrite
 - **Commit deliverables to EDS BEFORE opening sprinkles** that reference them
 - **Commit brand-review assets** (logos, screenshots in `assets/`) alongside brand-review.html to `deliverables/`
+- **Never hlx-admin-preview deliverables** — files in `deliverables/` are static HTML/images deployed via the code bus; just commit + push, they go live automatically. No `admin.hlx.page/preview` call needed.
 - **Lick payloads use `{action, data: {}}`** — extra sibling keys get stripped by the bridge
 ## CRITICAL — Pipeline Sprinkle Updates
 
@@ -58,7 +59,13 @@ The cone pushes status updates between scoops:
 - After spawning a scoop: push `active` for the current phase
 - After a scoop completes: push `done` for completed phases, then `active` for the next
 
-Format: `sprinkle send {{SLUG}}-pipeline '{"step":"<id>","status":"active|done","summary":"...","link":"..."}'`
+Format: `sprinkle send {{SLUG}}-pipeline '{"step":"<id>","status":"active|done","summary":"...","link":"...","startedAt":<epoch_ms>,"completedAt":<epoch_ms>}'`
+
+Timestamp rules:
+- When sending `"status":"active"`: include `"startedAt":<now_ms>` (capture the epoch-ms timestamp BEFORE the scoop runs)
+- When sending `"status":"done"`: include `"completedAt":<now_ms>` (capture AFTER the scoop finishes)
+- For steps that skip `active` (batch catch-up), include both `"startedAt"` and `"completedAt"` so the elapsed time displays correctly
+- Capture timestamps with: `` TIMESTAMP=$(date +%s000) `` (epoch milliseconds)
 
 Step IDs in order: `extract`, `audit`, `brand-review`, `direction`, `prototypes`, `deploy`
 
@@ -67,8 +74,8 @@ Step IDs in order: `extract`, `audit`, `brand-review`, `direction`, `prototypes`
 Every time you push a pipeline update, you MUST also rewrite the sprinkle's `.shtml` file with the updated `{{INITIAL_STATE_JSON}}` reflecting all current step statuses. This ensures followers who join mid-session see the full accumulated progress — not just a blank initial state.
 
 Procedure after every `sprinkle send`:
-1. Update your in-memory steps array with the new status
-2. Rewrite `/shared/sprinkles/{{SLUG}}-pipeline/{{SLUG}}-pipeline.shtml` with the updated state in the data island
+1. Update your in-memory steps array with the new status AND timestamps (`startedAt`, `completedAt`)
+2. Rewrite `/shared/sprinkles/{{SLUG}}-pipeline/{{SLUG}}-pipeline.shtml` with the updated state in the data island (include all timestamp fields so late joiners see elapsed times)
 3. The `sprinkle send` pushes the live update to connected followers; the rewritten file ensures new joiners get current state
 
 This is non-negotiable — without it, late-joining followers see all steps as "pending".
@@ -80,22 +87,23 @@ This is non-negotiable — without it, late-joining followers see all steps as "
 1. Derive slug from the URL
 2. Read `/workspace/skills/stardust-demo/templates/pipeline.shtml.tpl`
 3. Replace `{{URL}}` and `{{SLUG}}`
-4. Replace `{{INITIAL_STATE_JSON}}` with the initial state (extract=active, rest pending):
+4. Capture the start timestamp: `START_TS=$(date +%s000)`
+5. Replace `{{INITIAL_STATE_JSON}}` with the initial state (extract=active, rest pending):
    ```json
    {"steps":[
-     {"id":"extract","status":"active","summary":"Crawling homepage...","link":null},
-     {"id":"audit","status":"pending","summary":"Identify design tensions","link":null},
-     {"id":"brand-review","status":"pending","summary":"Extract palette, type, motifs","link":null},
-     {"id":"direction","status":"pending","summary":"Define 3 variant directions","link":null},
-     {"id":"prototypes","status":"pending","summary":"Generate 3 variant prototypes","link":null},
-     {"id":"deploy","status":"pending","summary":"Convert to EDS site","link":null}
+     {"id":"extract","status":"active","summary":"Crawling homepage...","link":null,"startedAt":<START_TS>,"completedAt":null},
+     {"id":"audit","status":"pending","summary":"Identify design tensions","link":null,"startedAt":null,"completedAt":null},
+     {"id":"brand-review","status":"pending","summary":"Extract palette, type, motifs","link":null,"startedAt":null,"completedAt":null},
+     {"id":"direction","status":"pending","summary":"Define 3 variant directions","link":null,"startedAt":null,"completedAt":null},
+     {"id":"prototypes","status":"pending","summary":"Generate 3 variant prototypes","link":null,"startedAt":null,"completedAt":null},
+     {"id":"deploy","status":"pending","summary":"Convert to EDS site","link":null,"startedAt":null,"completedAt":null}
    ]}
    ```
-5. Write to `/shared/sprinkles/{{SLUG}}-pipeline/{{SLUG}}-pipeline.shtml`
-6. Run: `sprinkle open {{SLUG}}-pipeline`
-7. Push initial status:
+6. Write to `/shared/sprinkles/{{SLUG}}-pipeline/{{SLUG}}-pipeline.shtml`
+7. Run: `sprinkle open {{SLUG}}-pipeline`
+8. Push initial status:
    ```
-   sprinkle send {{SLUG}}-pipeline '{"step":"extract","status":"active","summary":"Crawling homepage..."}'
+   sprinkle send {{SLUG}}-pipeline '{"step":"extract","status":"active","summary":"Crawling homepage...","startedAt":'$START_TS'}'
    ```
 
 ### Step 2 — Uplift Phase 1: Extract + Audit + Brand Review (scoop)
@@ -160,11 +168,12 @@ from /workspace/ which is read-only.
 
 **Track A — Report sprinkles (runs concurrently with Track B):**
 
-1. Pushes pipeline updates:
+1. Captures completion timestamp and pushes pipeline updates (use the `$START_TS` captured at sprinkle creation and `DONE_TS=$(date +%s000)` now):
    ```
-   sprinkle send {{SLUG}}-pipeline '{"step":"extract","status":"done","summary":"Homepage crawled"}'
-   sprinkle send {{SLUG}}-pipeline '{"step":"audit","status":"done","summary":"5 tensions identified"}'
-   sprinkle send {{SLUG}}-pipeline '{"step":"brand-review","status":"done","summary":"Palette + type extracted"}'
+   DONE_TS=$(date +%s000)
+   sprinkle send {{SLUG}}-pipeline '{"step":"extract","status":"done","summary":"Homepage crawled","startedAt":'$START_TS',"completedAt":'$DONE_TS'}'
+   sprinkle send {{SLUG}}-pipeline '{"step":"audit","status":"done","summary":"5 tensions identified","startedAt":'$START_TS',"completedAt":'$DONE_TS'}'
+   sprinkle send {{SLUG}}-pipeline '{"step":"brand-review","status":"done","summary":"Palette + type extracted","startedAt":'$START_TS',"completedAt":'$DONE_TS'}'
    ```
 
 2. Commits audit + brand-review deliverables to EDS (so sprinkles can reference them):
@@ -174,8 +183,7 @@ from /workspace/ which is read-only.
      ```
      cp -r /shared/stardust/current/assets {repo}/deliverables/assets
      ```
-   - `git add deliverables/ && git commit && git push`
-   - Trigger EDS preview for both pages AND assets (so images resolve)
+   - `git add deliverables/ && git commit && git push` (deliverables go live via the code bus — no hlx admin preview needed)
 
 3. Opens audit + brand-review sprinkles:
    - Read `audit.shtml.tpl`, replace `{{URL}}`, `{{AUDIT_URL}}` → write & `sprinkle open`
@@ -185,7 +193,8 @@ from /workspace/ which is read-only.
 
 1. Pushes direction as active:
    ```
-   sprinkle send {{SLUG}}-pipeline '{"step":"direction","status":"active","summary":"Defining variant directions..."}'
+   DIR_START=$(date +%s000)
+   sprinkle send {{SLUG}}-pipeline '{"step":"direction","status":"active","summary":"Defining variant directions...","startedAt":'$DIR_START'}'
    ```
 2. Spawns the Phase 2 uplift scoop immediately (see Step 3)
 
@@ -253,10 +262,11 @@ writes land inside /shared/ — do NOT run from /workspace/ which is read-only.
 - `prototypes/home-C-cinematic.html`
 - `direction.md`
 
-**Then pushes pipeline updates:**
+**Then pushes pipeline updates (use `$DIR_START` captured earlier, capture completion now):**
 ```
-sprinkle send {{SLUG}}-pipeline '{"step":"direction","status":"done","summary":"3 variant directions resolved"}'
-sprinkle send {{SLUG}}-pipeline '{"step":"prototypes","status":"done","summary":"3 variants ready for review"}'
+DIR_DONE=$(date +%s000)
+sprinkle send {{SLUG}}-pipeline '{"step":"direction","status":"done","summary":"3 variant directions resolved","startedAt":'$DIR_START',"completedAt":'$DIR_DONE'}'
+sprinkle send {{SLUG}}-pipeline '{"step":"prototypes","status":"done","summary":"3 variants ready for review","startedAt":'$DIR_START',"completedAt":'$DIR_DONE'}'
 ```
 
 **Uplift outputs when both scoops are done:**
@@ -287,14 +297,7 @@ git commit -m "Add variant prototypes"
 git push origin {branch}
 ```
 
-Trigger EDS preview:
-```bash
-DA_TOKEN=$(oauth-token adobe)
-for page in variant-A variant-B variant-C; do
-  curl -X POST -H "Authorization: Bearer $DA_TOKEN" \
-    https://admin.hlx.page/preview/{owner}/{repo}/{branch}/deliverables/$page
-done
-```
+Deliverables are live via the code bus after push — no hlx admin preview needed.
 
 #### 4b. Take screenshots from live EDS URLs
 
@@ -328,13 +331,7 @@ git commit -m "Add variant screenshots"
 git push origin {branch}
 ```
 
-Trigger preview for images:
-```bash
-for page in variant-A.png variant-B.png variant-C.png; do
-  curl -X POST -H "Authorization: Bearer $DA_TOKEN" \
-    https://admin.hlx.page/preview/{owner}/{repo}/{branch}/deliverables/$page
-done
-```
+Screenshots are live via the code bus after push — no hlx admin preview needed.
 
 #### 4c. Open variants sprinkle
 
@@ -390,7 +387,8 @@ The cone mounts DA before spawning the deploy scoop, then the scoop handles code
 #### 6a. Push pipeline status
 
 ```
-sprinkle send {{SLUG}}-pipeline '{"step":"deploy","status":"active","summary":"Deploying variant {{VARIANT}} to EDS..."}'
+DEPLOY_START=$(date +%s000)
+sprinkle send {{SLUG}}-pipeline '{"step":"deploy","status":"active","summary":"Deploying variant {{VARIANT}} to EDS...","startedAt":'$DEPLOY_START'}'
 ```
 
 #### 6b. Cone mounts DA (before scoop spawn)
@@ -483,7 +481,8 @@ Write to /shared/stardust-demo/deploy-status.json:
 When the deploy scoop finishes (status file written):
 
 ```
-sprinkle send {{SLUG}}-pipeline '{"step":"deploy","status":"done","summary":"Live at {{PREVIEW_URL}}","link":"{{PREVIEW_URL}}"}'
+DEPLOY_DONE=$(date +%s000)
+sprinkle send {{SLUG}}-pipeline '{"step":"deploy","status":"done","summary":"Live at {{PREVIEW_URL}}","link":"{{PREVIEW_URL}}","startedAt":'$DEPLOY_START',"completedAt":'$DEPLOY_DONE'}'
 ```
 
 **PREVIEW_URL** = `https://{branch}--{repo}--{org}.aem.page/`
