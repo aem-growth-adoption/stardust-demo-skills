@@ -367,13 +367,20 @@
 {{VARIANTS_JSON}}
 </script>
 
+<!-- Baked selection: set by cone after variant is chosen so late joiners see it -->
+<script id="baked-selection" type="application/json">
+{{SELECTED_VARIANT_JSON}}
+</script>
+
 <script>
   var DATA = JSON.parse(document.getElementById('variants-data').textContent);
   var VARIANTS = DATA.variants;
   var FIXES = DATA.fixes;
   var RECOMMENDED = DATA.recommended;
+  var bakedSelection = null;
+  try { bakedSelection = JSON.parse(document.getElementById('baked-selection').textContent); } catch(e) {}
   var saved = slicc.getState();
-  var selectedVariant = (saved && saved.selectedVariant) || null;
+  var selectedVariant = (saved && saved.selectedVariant) || (bakedSelection && bakedSelection.selectedVariant) || null;
 
   function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -448,7 +455,13 @@
 
   setTimeout(function() { document.body.classList.add('ready'); }, 50);
 
-  slicc.on('update', function(data) {});
+  slicc.on('update', function(data) {
+    if (data && data.selectedVariant) {
+      selectedVariant = data.selectedVariant;
+      slicc.setState({ selectedVariant: selectedVariant });
+      renderGallery();
+    }
+  });
 </script>
 </body>
 </html>

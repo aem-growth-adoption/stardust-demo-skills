@@ -342,7 +342,8 @@ Screenshots are live via the code bus after push — no hlx admin preview needed
    - Shared fixes across all variants
 2. Read `/workspace/skills/stardust-demo/templates/variants.shtml.tpl`
 3. Replace `{{URL}}` and `{{SLUG}}`
-4. Replace `{{VARIANTS_JSON}}` with a single JSON object in the data island.
+4. Replace `{{SELECTED_VARIANT_JSON}}` with `null` (no selection yet)
+5. Replace `{{VARIANTS_JSON}}` with a single JSON object in the data island.
    Use EDS URLs for screenshots and variant links (NOT base64, NOT file://):
    ```json
    {
@@ -377,9 +378,18 @@ The variants sprinkle fires a lick when the user clicks "Deploy":
 **Note:** The lick uses `data: {variant: "B"}` — NOT a sibling `variant` key. The sprinkle bridge strips sibling keys; only `action` and `data` are preserved.
 
 When the cone receives this lick:
-1. Confirm with the user: "Deploy variant {{VARIANT}}? This will convert it to an EDS site."
-2. If confirmed, proceed to Step 6
-3. If the user wants a different variant, wait for another lick
+1. Broadcast the selection to all followers AND persist for late joiners:
+   ```
+   sprinkle send {{SLUG}}-variants '{"selectedVariant":"{{VARIANT}}"}'
+   ```
+   Then rewrite the variants `.shtml` file — replace `{{SELECTED_VARIANT_JSON}}` with:
+   ```json
+   {"selectedVariant":"{{VARIANT}}"}
+   ```
+   This ensures followers who join after selection still see which variant was chosen.
+2. Confirm with the user: "Deploy variant {{VARIANT}}? This will convert it to an EDS site."
+3. If confirmed, proceed to Step 6
+4. If the user wants a different variant, wait for another lick
 
 ### Step 6 — Deploy
 
