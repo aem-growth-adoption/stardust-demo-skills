@@ -50,6 +50,7 @@ Strip `www.`, take first segment before `.`, lowercase, append `-$(openssl rand 
 - **Commit deliverables to EDS BEFORE opening sprinkles** that reference them
 - **Commit brand-review assets** (logos, screenshots in `assets/`) alongside brand-review.html to `deliverables/`
 - **Never hlx-admin-preview deliverables** — files in `deliverables/` are static HTML/images deployed via the code bus; just commit + push, they go live automatically. No `admin.hlx.page/preview` call needed.
+- **All DA content operations go through the mount** — read/write/delete DA content ONLY via the mounted filesystem (`/mnt/da/`). Never use `admin.hlx.page` or `admin.da.live` APIs to push content. The ONLY exception is triggering preview (`POST admin.hlx.page/preview/...`) after content is written via the mount.
 - **Lick payloads use `{action, data: {}}`** — extra sibling keys get stripped by the bridge
 ## CRITICAL — Pipeline Sprinkle Updates
 
@@ -437,12 +438,14 @@ Follow impeccable's craft loop for all design work.
 
 DA is ALREADY MOUNTED at /mnt/da by the cone. Do NOT run `mount` yourself.
 
-To write content to DA:
+ALL content operations MUST go through the mount. NEVER use curl/fetch against admin.hlx.page or admin.da.live to write, upload, or push content — those APIs will fail or produce inconsistent state.
+
+To write content to DA (via mount only):
    cp content/index.html /mnt/da/index.html
    cp content/nav.html /mnt/da/nav.html
    cp content/footer.html /mnt/da/footer.html
 
-To trigger preview (hlx admin accepts the opaque token):
+After writing via mount, trigger preview (the ONLY valid use of admin.hlx.page):
    DA_TOKEN=$(oauth-token adobe)
    curl -X POST -H "Authorization: Bearer $DA_TOKEN" \
      "https://admin.hlx.page/preview/{org}/{repo}/{branch}/index"
@@ -452,6 +455,7 @@ To trigger preview (hlx admin accepts the opaque token):
      "https://admin.hlx.page/preview/{org}/{repo}/{branch}/footer"
 
 DO NOT use curl against admin.da.live — it will fail with 401.
+DO NOT use curl/admin APIs to write content — use the /mnt/da/ mount.
 
 ## Git rules
 
