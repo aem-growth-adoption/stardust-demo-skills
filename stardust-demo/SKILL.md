@@ -26,6 +26,8 @@ Orchestrates `stardust:uplift` (split across multiple scoops) → deliverables t
 - `stardust:uplift` sub-skill installed (`upskill adobe/skills --skill uplift`)
 - `stardust:deploy` sub-skill installed (`upskill adobe/skills --skill deploy`)
 - `impeccable` skill installed (`upskill pbakaus/impeccable`)
+
+Sub-skills install flat under `/workspace/skills/` (uplift, deploy, audit, …), not nested under stardust/.
 - DA token available via `oauth-token adobe`
 - GitHub access configured by the Stardust Lab
 - EDS repo + DA org pre-created by the Stardust Lab
@@ -51,6 +53,7 @@ Strip `www.`, take first segment before `.`, lowercase, append `-$(openssl rand 
 - **Commit brand-review assets** (logos, screenshots in `assets/`) alongside brand-review.html to `deliverables/`
 - **Never hlx-admin-preview deliverables** — files in `deliverables/` are static HTML/images deployed via the code bus; just commit + push, they go live automatically. No `admin.hlx.page/preview` call needed.
 - **All DA content operations go through the mount** — read/write/delete DA content ONLY via the mounted filesystem (`/mnt/da/`). Never use `admin.hlx.page` or `admin.da.live` APIs to push content. The ONLY exception is triggering preview (`POST admin.hlx.page/preview/...`) after content is written via the mount.
+- **Never delete scoops after completion** — leave finished scoops alive for debugging and retrospective; they cost nothing idle and their logs/state are invaluable if something goes wrong downstream
 - **Lick payloads use `{action, data: {}}`** — extra sibling keys get stripped by the bridge
 ## CRITICAL — Pipeline Sprinkle Updates
 
@@ -82,6 +85,19 @@ Procedure after every `sprinkle send`:
 This is non-negotiable — without it, late-joining followers see all steps as "pending".
 
 ## Procedure
+
+### Step 0 — Verify required skills resolve
+
+Before starting, confirm all required skills are installed at the expected flat paths:
+
+```bash
+test -f /workspace/skills/uplift/SKILL.md
+test -f /workspace/skills/deploy/SKILL.md
+test -f /workspace/skills/impeccable/SKILL.md
+test -f /workspace/skills/stardust-demo/SKILL.md
+```
+
+If any are missing, install them (see Prerequisites) before proceeding — do NOT feed scoops dead paths.
 
 ### Step 1 — Setup & open pipeline sprinkle
 
@@ -125,7 +141,7 @@ Feed the scoop:
 ```
 ## STEP 1 — MANDATORY
 
-Run: read_file /workspace/skills/stardust/skills/uplift/SKILL.md
+Run: read_file /workspace/skills/uplift/SKILL.md
 Then follow those instructions for URL: {{URL}}
 
 ## STEP 2 — Load impeccable
@@ -217,7 +233,7 @@ Feed the scoop:
 ```
 ## STEP 1 — MANDATORY
 
-Run: read_file /workspace/skills/stardust/skills/uplift/SKILL.md
+Run: read_file /workspace/skills/uplift/SKILL.md
 Then follow those instructions for URL: {{URL}}
 
 ## STEP 2 — Load impeccable
@@ -426,7 +442,7 @@ Feed the scoop:
 ```
 ## STEP 1 — MANDATORY
 
-Run: read_file /workspace/skills/stardust/skills/deploy/SKILL.md
+Run: read_file /workspace/skills/deploy/SKILL.md
 Then follow those instructions EXACTLY.
 
 ## STEP 2 — Load impeccable
