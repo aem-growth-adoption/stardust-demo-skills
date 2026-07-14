@@ -408,9 +408,8 @@ When the cone receives this lick:
    {"selectedVariant":"{{VARIANT}}"}
    ```
    This ensures followers who join after selection still see which variant was chosen.
-2. Confirm with the user: "Deploy variant {{VARIANT}}? This will convert it to an EDS site."
-3. If confirmed, proceed to Step 6
-4. If the user wants a different variant, wait for another lick
+2. The lick itself IS the confirmation — the user clicked "Deploy" on a specific variant in the sprinkle. Do NOT ask again ("Deploy variant B?" etc.) before proceeding. Go straight to Step 6.
+3. If a later lick selects a different variant, treat it as the user changing their mind — broadcast/persist the new selection and proceed with the new variant (no extra confirmation needed there either).
 
 ### Step 6 — Deploy
 
@@ -545,7 +544,7 @@ The data island uses this shape:
     {
       "icon": "🚀",
       "title": "Migrate your site",
-      "description": "Use Edge Migration Accelerator to bring over more pages",
+      "description": "Use Experience Modernization Agent (EMA) to bring over more pages",
       "url": "https://ema.aem.live",
       "linkLabel": "open"
     },
