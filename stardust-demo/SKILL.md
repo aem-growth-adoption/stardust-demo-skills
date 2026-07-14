@@ -44,6 +44,8 @@ Derive from URL hostname + 4 random hex chars:
 
 Strip `www.`, take first segment before `.`, lowercase, append `-$(openssl rand -hex 2)`.
 
+**If `openssl` isn't available**, fall back to Node: `node -e "console.log(require('crypto').randomBytes(2).toString('hex'))"`.
+
 ## Key Rules
 
 - **Never reference `/workspace/` or `file://` in anything a follower sees** — screenshots, sprinkle data, variant links all use EDS URLs (commit assets to `deliverables/` first)
@@ -320,24 +322,24 @@ Deliverables are live via the code bus after push — no hlx admin preview neede
 
 Screenshots MUST be from live EDS URLs (NEVER `file://` paths).
 
-**playwright-cli screenshot behavior:** Requires `--tab <targetId>` (get it from the `open` output or `tab-list`). It writes to an auto-named `/tmp/screenshot-<epoch>.png` regardless of any positional path you pass — read the "Screenshot saved to …" line and `cp` from there. Wait ~4–6s after `open` before capturing.
+**playwright-cli screenshot behavior:** Requires `--tab <targetId>` (get it from the `open` output or `tab-list`). Use `--fullPage=true`, not the bare `--fullPage` flag — the bare form throws a misleading "Maximum call stack size exceeded" error instead of a clear syntax error. It writes to an auto-named `/tmp/screenshot-<epoch>.png` regardless of any positional path you pass — read the "Screenshot saved to …" line and `cp` from there. Wait ~4–6s after `open` before capturing.
 
 ```bash
 TAB_A=$(playwright-cli open "$EDS_BASE/variant-A.html" | grep -o 'tab-[^ ]*')
 sleep 5
-SHOT_A=$(playwright-cli screenshot --tab "$TAB_A" --fullPage --max-width 1280 | grep -o '/tmp/screenshot-[^ ]*')
+SHOT_A=$(playwright-cli screenshot --tab "$TAB_A" --fullPage=true --max-width 1280 | grep -o '/tmp/screenshot-[^ ]*')
 cp "$SHOT_A" /shared/{{SLUG}}-variant-A.png
 playwright-cli tab-close --tab "$TAB_A"
 
 TAB_B=$(playwright-cli open "$EDS_BASE/variant-B.html" | grep -o 'tab-[^ ]*')
 sleep 5
-SHOT_B=$(playwright-cli screenshot --tab "$TAB_B" --fullPage --max-width 1280 | grep -o '/tmp/screenshot-[^ ]*')
+SHOT_B=$(playwright-cli screenshot --tab "$TAB_B" --fullPage=true --max-width 1280 | grep -o '/tmp/screenshot-[^ ]*')
 cp "$SHOT_B" /shared/{{SLUG}}-variant-B.png
 playwright-cli tab-close --tab "$TAB_B"
 
 TAB_C=$(playwright-cli open "$EDS_BASE/variant-C.html" | grep -o 'tab-[^ ]*')
 sleep 5
-SHOT_C=$(playwright-cli screenshot --tab "$TAB_C" --fullPage --max-width 1280 | grep -o '/tmp/screenshot-[^ ]*')
+SHOT_C=$(playwright-cli screenshot --tab "$TAB_C" --fullPage=true --max-width 1280 | grep -o '/tmp/screenshot-[^ ]*')
 cp "$SHOT_C" /shared/{{SLUG}}-variant-C.png
 playwright-cli tab-close --tab "$TAB_C"
 ```
@@ -600,7 +602,7 @@ If `/shared/stardust/state.json` exists for the same URL:
 - **Sprinkle overwrite doesn't push to followers** — always mint fresh names, never reuse.
 - **All scoop outputs go to `/shared/stardust/`** — `/shared/` is not sandboxed, so cone and other scoops can read outputs directly without copying. Never use `/workspace/stardust/` for scoop outputs.
 - **No python/pyodide filesystem, no fonttools** — Do text/JSON transforms with `node -e` one-liners. Font-fallback metric calc via fonttools is unavailable — use published metric-override values and document the trade-off. The bundled `sanitise.js` won't run in this runtime — inline-encode non-ASCII with a node one-liner instead.
-- **playwright-cli screenshot requires `--tab`** — It writes to an auto-named `/tmp/screenshot-*.png` regardless of any positional path argument. Read the "Screenshot saved to …" output line and `cp` from there. Wait ~4–6s after `open` before capturing.
+- **playwright-cli screenshot requires `--tab`** — It writes to an auto-named `/tmp/screenshot-*.png` regardless of any positional path argument. Read the "Screenshot saved to …" output line and `cp` from there. Wait ~4–6s after `open` before capturing. Use `--fullPage=true` (not the bare `--fullPage`) — the bare form fails with a misleading "Maximum call stack size exceeded" error.
 
 ## Design System
 
