@@ -22,15 +22,23 @@ Orchestrates `stardust:uplift` (split across multiple scoops) → deliverables t
 
 ## Prerequisites
 
-- `stardust` skill installed (`upskill adobe/skills --skill stardust`)
-- `stardust:uplift` sub-skill installed (`upskill adobe/skills --skill uplift`)
-- `stardust:deploy` sub-skill installed (`upskill adobe/skills --skill deploy`)
-- `impeccable` skill installed (`upskill pbakaus/impeccable`)
+This demo requires the following skills installed **flat** under `/workspace/skills/`: `uplift`, `deploy`, `diff`, `impeccable`, and `stardust-demo`. Sub-skills never land nested under `stardust/skills/...` — a normal `upskill` install always produces the flat layout.
 
-Sub-skills install flat under `/workspace/skills/` (uplift, deploy, audit, …), not nested under stardust/.
+Install with:
+
+```
+upskill QuentinVecchio/adobe-skills@chore/async-fs-operations --path plugins/stardust --all
+upskill pbakaus/impeccable --skill impeccable --path .pi/skills
+upskill aem-growth-adoption/stardust-demo-skills --all
+```
+
+The first command installs `uplift`, `deploy`, `diff`, and the rest of the stardust suite.
+
 - DA token available via `oauth-token adobe`
 - GitHub access configured by the Stardust Lab
 - EDS repo + DA org pre-created by the Stardust Lab
+
+**Runtime dependencies:** the `.mjs` gate scripts under `deploy/scripts/` and `diff/scripts/` need `esbuild-wasm` to transpile (`ipk add esbuild-wasm`), and `diff` must be installed alongside `deploy` since its scripts import `../../diff/scripts/`.
 
 ## Model
 
@@ -95,6 +103,7 @@ Before starting, confirm all required skills are installed at the expected flat 
 ```bash
 test -f /workspace/skills/uplift/SKILL.md
 test -f /workspace/skills/deploy/SKILL.md
+test -f /workspace/skills/diff/SKILL.md
 test -f /workspace/skills/impeccable/SKILL.md
 test -f /workspace/skills/stardust-demo/SKILL.md
 ```
